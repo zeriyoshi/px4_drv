@@ -1,0 +1,74 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+  Linux_Bare:
+    strategy:
+      matrix:
+        platforms: [ubuntu-24.04, ubuntu-24.04-arm]
+    runs-on: ${{ matrix.platforms }}
+
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+
+    - name: Build kernel module
+      run: |
+        make -j$(nproc)
+
+    - name: Install kernel module
+      run: |
+        sudo make install
+
+    - name: Test kernel module
+      run: |
+        if ! lsmod | grep -q "^px4_drv"; then
+          echo "Error: px4_drv is not loaded"
+          exit 1
+        fi
+        echo "Success: px4_drv is loaded"
+
+  Linux_Container:
+    strategy:
+      matrix:
+        platform: [ubuntu-24.04, ubuntu-24.04-arm]
+        images:
+          - ubuntu:22.04
+          - ubuntu:24.04
+          - debian:bullseye
+          - debian:bookworm
+
+    runs-on: ${{ matrix.platform }}
+
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+
+    - name: Build container
+      run: |
+        docker build \
+          --build-arg IMAGE="${{ matrix.images }}" \
+          -t builder \
+          .
+
+    - name: Build package
+      run: |
+        docker run \
+          -v "$(pwd)/:/mnt" \
+          --workdir "/mnt" \
+          builder \
+            /bin/sh -c "make -j$(nproc) deb && cp ../*.deb /mnt"
+    
+    - name: Check deb package
+      run: |
+        ls -al *.deb
+        dpkg-deb --info *.deb
+        dpkg-deb --contents *.deb
