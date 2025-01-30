@@ -55,17 +55,20 @@ jobs:
     - name: Build container
       run: |
         docker build \
+          --pull \
           --build-arg IMAGE="${{ matrix.images }}" \
           -t builder \
           .
 
     - name: Build package
       run: |
+        mkdir "artifacts"
         docker run \
           -v "$(pwd)/:/mnt" \
+          -v "$(pwd)/artifacts:/artifacts" \
           --workdir "/mnt" \
           builder \
-            /bin/sh -c "make -j$(nproc) deb && cp ../*.deb /mnt"
+            /bin/sh -c 'make -j"$(nproc)" deb && cp ../*.deb "/artifacts/"*"_$(lsb_release -cs).deb"'
     
     - name: Check deb package
       run: |
