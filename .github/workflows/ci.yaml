@@ -72,6 +72,6 @@ jobs:
     
     - name: Check deb package
       run: |
-        ls -al *.deb
+        ls -al artifacts/*.deb
         dpkg-deb --info *.deb
         dpkg-deb --contents *.deb
